@@ -1,7 +1,7 @@
 {
   "name": "orion-feedback-server",
   "version": "1.0.0",
-  "description": "Servidor para recibir feedback de usuarios de Orion que apoyan",
+  "description": "Servidor de feedback para Orion App",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
@@ -10,5 +10,8 @@
     "express": "^4.18.2",
     "nodemailer": "^6.9.8",
     "cors": "^2.8.5"
+  },
+  "engines": {
+    "node": ">=18"
   }
 }

@@ -6,85 +6,76 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Configurar transporter de Gmail
-// Necesitas crear una "Contraseña de aplicación" en Google:
-// 1. Ve a https://myaccount.google.com/apppasswords
-// 2. Crea una contraseña para "Otra aplicación" -> "Orion Server"
-// 3. Copia la contraseña de 16 caracteres
+// Configurar transporte de email (usando Gmail)
 const transporter = nodemailer.createTransport({
-  service: 'gmail',
-  auth: {
-    user: process.env.GMAIL_USER || 'gamogestionweb@gmail.com',
-    pass: process.env.GMAIL_APP_PASSWORD  // Contraseña de aplicación de Google (NO tu contraseña normal)
-  }
-});
-
-// Endpoint principal: recibir feedback de usuarios que han pagado
-app.post('/feedback', async (req, res) => {
-  try {
-    const { message, amount, productName, deviceInfo, purchaseToken } = req.body;
-
-    // Validar que hay mensaje y cantidad
-    if (!message || !amount) {
-      return res.status(400).json({ error: 'Mensaje y cantidad son requeridos' });
+    service: 'gmail',
+    auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS
     }
-
-    // Formatear el email
-    const emailHtml = `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background: #1a1a2e; color: #fff; border-radius: 12px;">
-        <h1 style="color: #D4AF37; margin-bottom: 20px;">🎉 ¡Nuevo apoyo en Orion!</h1>
-
-        <div style="background: #16213e; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
-          <p style="margin: 0; color: #E8B4B8; font-size: 24px; font-weight: bold;">💰 ${amount}</p>
-          <p style="margin: 5px 0 0 0; color: #888;">📦 ${productName || 'Donación'}</p>
-        </div>
-
-        <div style="background: #16213e; padding: 20px; border-radius: 8px; margin-bottom: 15px;">
-          <h3 style="color: #5B8FB9; margin-top: 0;">💬 Mensaje del usuario:</h3>
-          <p style="color: #fff; line-height: 1.6; white-space: pre-wrap;">${message}</p>
-        </div>
-
-        <div style="color: #666; font-size: 12px; border-top: 1px solid #333; padding-top: 15px;">
-          <p>📱 Dispositivo: ${deviceInfo || 'No especificado'}</p>
-          <p>📅 Fecha: ${new Date().toLocaleString('es-ES', { timeZone: 'Europe/Madrid' })}</p>
-          ${purchaseToken ? `<p>🔑 Token: ${purchaseToken.substring(0, 30)}...</p>` : ''}
-        </div>
-
-        <p style="color: #D4AF37; font-style: italic; margin-top: 20px;">
-          Este mensaje fue enviado desde Orion App.<br>
-          Solo recibes mensajes de usuarios que han apoyado económicamente. 💜
-        </p>
-      </div>
-    `;
-
-    // Enviar email
-    await transporter.sendMail({
-      from: '"Orion App" <gamogestionweb@gmail.com>',
-      to: 'gamogestionweb@gmail.com',
-      subject: `💜 Orion: Nuevo apoyo de ${amount} - ${productName || 'Donación'}`,
-      html: emailHtml,
-      text: `Nuevo apoyo en Orion!\n\nCantidad: ${amount}\nProducto: ${productName}\n\nMensaje:\n${message}\n\nDispositivo: ${deviceInfo}\nFecha: ${new Date().toLocaleString('es-ES')}`
-    });
-
-    console.log(`✅ Feedback enviado: ${amount} - ${message.substring(0, 50)}...`);
-    res.json({ success: true, message: 'Mensaje enviado correctamente' });
-
-  } catch (err) {
-    console.error('Error:', err);
-    res.status(500).json({ error: 'Error enviando mensaje' });
-  }
 });
 
-// Health check
+// Endpoint de health check
 app.get('/', (req, res) => {
-  res.json({
-    status: 'ok',
-    service: 'Orion Feedback Server',
-    message: 'Solo acepto mensajes de quienes apoyan 💜'
-  });
+    res.json({ status: 'ok', message: 'Orion Feedback Server Running' });
+});
+
+// Endpoint principal de feedback
+app.post('/feedback', async (req, res) => {
+    try {
+        const { message, amount, productName, deviceInfo, purchaseToken } = req.body;
+
+        console.log('📩 Nuevo feedback recibido:');
+        console.log('- Producto:', productName);
+        console.log('- Cantidad:', amount);
+        console.log('- Dispositivo:', deviceInfo);
+        console.log('- Mensaje:', message);
+
+        // Enviar email
+        const mailOptions = {
+            from: process.env.EMAIL_USER,
+            to: process.env.EMAIL_TO || process.env.EMAIL_USER,
+            subject: `💜 Orion Feedback - ${productName} (${amount})`,
+            html: `
+                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background: #1a1a24; color: #fff; border-radius: 12px;">
+                    <h1 style="color: #D4AF37; text-align: center;">💜 Nuevo Apoyo en Orion</h1>
+
+                    <div style="background: #2a2a34; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                        <h2 style="color: #E8B4B8; margin-top: 0;">Detalles del apoyo:</h2>
+                        <p><strong style="color: #D4AF37;">Producto:</strong> ${productName}</p>
+                        <p><strong style="color: #D4AF37;">Cantidad:</strong> ${amount}</p>
+                        <p><strong style="color: #D4AF37;">Dispositivo:</strong> ${deviceInfo}</p>
+                    </div>
+
+                    <div style="background: #2a2a34; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                        <h2 style="color: #E8B4B8; margin-top: 0;">Mensaje:</h2>
+                        <p style="font-style: italic; color: #ccc;">"${message || 'Sin mensaje'}"</p>
+                    </div>
+
+                    ${purchaseToken ? `
+                    <div style="background: #1e1e28; padding: 10px; border-radius: 8px; margin: 20px 0; font-size: 12px;">
+                        <p style="color: #666;"><strong>Token:</strong> ${purchaseToken.substring(0, 50)}...</p>
+                    </div>
+                    ` : ''}
+
+                    <p style="text-align: center; color: #666; font-size: 12px; margin-top: 30px;">
+                        Orion Feedback Server
+                    </p>
+                </div>
+            `
+        };
+
+        await transporter.sendMail(mailOptions);
+        console.log('✅ Email enviado correctamente');
+
+        res.json({ success: true, message: 'Feedback recibido' });
+    } catch (error) {
+        console.error('❌ Error:', error.message);
+        res.status(500).json({ success: false, error: error.message });
+    }
 });
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`🚀 Orion Feedback Server en puerto ${PORT}`);
+    console.log(`🚀 Servidor corriendo en puerto ${PORT}`);
 });
